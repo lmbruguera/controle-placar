@@ -27,10 +27,13 @@ int voltaParcial = 0;
 int voltaCompleta = 0;
 int tInicial = 0;
 int tFinal = 0;
+int tParcial = 0;
+int tTotal = 0;
 int buttonStateA = 0;
 int buttonStateB = 0;
 int buttonStateC = 0;
 
+void printDisplay();
 
 void oledPrint(String msg, int coluna, int linha) {
   display.setCursor(coluna, linha);
@@ -94,4 +97,21 @@ void loop() {
     //fazer alguma coisa
   }
 
+}
+
+
+void printDisplay(int voltaParcial, int voltaCompleta, int tParcial, int tTotal){
+  display.clearDisplay();
+  delay(100);
+  oledPrint("Voltas totais:", 5, 5);
+  oledPrint("Tempo total:", 5, 15);
+  oledPrint("Voltas parciais:", 5, 25);
+  oledPrint("Tempo parcial:", 5, 35);
+
+  
+  oledPrint(String(voltaCompleta), 5, 5);
+  oledPrint(String(tTotal), 5, 15);
+  oledPrint(String(voltaParcial), 5, 25);
+  oledPrint(String(tParcial), 5, 35);
+  
 }
