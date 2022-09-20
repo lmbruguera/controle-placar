@@ -1,5 +1,7 @@
-
-#include <LittleFS.h>
+#include "InputDebounce.h"
+#include <SPI.h>
+#include <Wire.h>
+//#include <LittleFS.h>
 #include <ArduinoJson.h>
 #include <Adafruit_GFX.h>       // OLED
 #include <Adafruit_SSD1306.h>   // OLED
@@ -9,60 +11,127 @@
 
 // OLED (biblioteca Wire)   // D01
 // OLED (biblioteca Wire)   // D02
-#define buttonA 12         // D06
-#define buttonB 13         // D07
-#define buttonC 15         // D08
+static const int inputButtonA = 12;         // D06
+static const int inputButtonB = 13;         // D07
+static const int inputButtonC = 15;         // D08
+
+static InputDebounce buttonA;
+static InputDebounce buttonB;
+static InputDebounce buttonC;
+
+#define BUTTON_DEBOUNCE_DELAY 20
 
 
 // DEFINE PARAMETROS DO OLED
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 #define OLED_RESET -1
-#define SCREEN_ADDRESS 0x3C           // OLED do Marcatti (4 input pins)
-//#define SCREEN_ADDRESS 0x3D           // OLED do Ferreira (8 input pins)
+#define SCREEN_ADDRESS 0x3C
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-// cria objeto Adafruit_SSD1306 com objeto Wire (library) como parâmetro
 
 int voltaParcial = 0;
 int voltaCompleta = 0;
-int tInicial = 0;
-int tFinal = 0;
-int tParcial = 0;
-int tTotal = 0;
-int buttonStateA = 0;
-int buttonStateB = 0;
-int buttonStateC = 0;
 
-void printDisplay();
+unsigned long tInicial = 0;
+unsigned long tFinal = 0;
+unsigned long tParcial = 0;
+unsigned long tTotal = 0;
+unsigned long tRefresh = 0;
+unsigned long tAtual = 0;
+
+String longTimeStr(const time_t &t){
+  
+  // Retorna segundos como "d:hh:mm:ss"
+  
+  String s = String(t / SECS_PER_DAY) + ':';
+  if (hour(t) < 10) {
+    s += '0';
+  }
+  s += String(hour(t)) + ':';
+  
+  if (minute(t) < 10) {
+    s += '0';
+  }
+  s += String(minute(t)) + ':';
+  
+  if (second(t) < 10) {
+    s += '0';
+  }
+  s += String(second(t));
+  
+  return s;
+}
 
 void oledPrint(String msg, int coluna, int linha) {
   display.setCursor(coluna, linha);
   display.print(msg);
 }
 
+void printDisplay(){
+  tRefresh = tAtual;
+  display.clearDisplay();
+  delay(10);
+  oledPrint("Voltas totais:", 5, 5);
+  oledPrint("Tempo total:", 5, 15);
+  oledPrint("Voltas parciais:", 5, 25);
+  oledPrint("Tempo parcial:", 5, 35);
+
+  oledPrint(String(voltaCompleta), 105, 5);
+  oledPrint(String(tTotal), 105, 15);
+  oledPrint(String(voltaParcial), 105, 25);
+  oledPrint(String(tParcial), 105, 35);
+
+  oledPrint(longTimeStr(millis()/1000), 5, 55);
+  display.display();
+}
+
+
+void addScore(uint8_t pinIn){
+  voltaParcial++;
+  voltaCompleta++;
+  
+  printDisplay();
+}
+
+void rmvScore(uint8_t pinIn){
+  voltaParcial--;
+  voltaCompleta--;
+  printDisplay();
+}
+
+void rstScore(uint8_t pinIn){
+  voltaParcial = 0;
+  printDisplay();
+}
 
 void setup() {
-  // put your setup code here, to run once:
 
-  pinMode(buttonA, INPUT);
-  pinMode(buttonB, INPUT);
-  pinMode(buttonC, INPUT);
+  pinMode(inputButtonA, INPUT);
+  pinMode(inputButtonB, INPUT);
+  pinMode(inputButtonC, INPUT);
   // INICIA SERIAL - BAUD 74880 MOSTRA TIPO DO RESET
   Serial.begin(74880);
   Serial.println(F("Serial Begun"));  // for dubugging purposes
 
-  // INICIA LITTLEFS
-  if (!LittleFS.begin()) {
-    Serial.println("LittleFS mount failed");
-    return;
-  }
+  buttonA.registerCallbacks(addScore, NULL, NULL, NULL);
+  buttonB.registerCallbacks(rmvScore, NULL, NULL, NULL);
+  buttonC.registerCallbacks(rstScore, NULL, NULL, NULL);
+
+  buttonA.setup(inputButtonA, BUTTON_DEBOUNCE_DELAY, InputDebounce::PIM_EXT_PULL_DOWN_RES);
+  buttonB.setup(inputButtonB, BUTTON_DEBOUNCE_DELAY, InputDebounce::PIM_EXT_PULL_DOWN_RES);
+  buttonC.setup(inputButtonC, BUTTON_DEBOUNCE_DELAY, InputDebounce::PIM_EXT_PULL_DOWN_RES);
+  
+//  // INICIA LITTLEFS
+//  if (!LittleFS.begin()) {
+//    Serial.println("LittleFS mount failed");
+//    return;
+//  }
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("SSD1306 allocation failed"));
-    for (;;); // Don't proceed, loop forever
-    // Será que a gente consegue colocar um reset por código aqui?
+    for (;;);
   }
-
+  oledPrint("Olá",0,0);
   display.display();
   display.setTextSize(1);
   display.setTextColor(WHITE);
@@ -70,48 +139,23 @@ void setup() {
   delay(1000);
 
   display.clearDisplay();
+  printDisplay();
 
 }
 
 void loop() {
 
-  /*
-   * 3 botões
-   * buttonA adiciona uma volta parcial
-   * buttonB reduz uma volta parcial
-   * buttonC zera volta parcial
-   */
-
-  buttonStateA = digitalRead(buttonA);
-  if (buttonStateA == HIGH){
-    //fazer alguma coisa
-  }
-  
-  buttonStateB = digitalRead(buttonB);
-  if (buttonStateB == HIGH){
-    //fazer alguma coisa
-  }
-  
-  buttonStateC = digitalRead(buttonC);
-  if (buttonStateC == HIGH){
-    //fazer alguma coisa
+  unsigned long now = millis();
+  tAtual = millis()/1000;
+  if(tAtual - tRefresh == 1UL){
+    printDisplay();
   }
 
-}
+  buttonA.process(now);
+  buttonB.process(now);
+  buttonC.process(now);
+
+  delay(1);
 
 
-void printDisplay(int voltaParcial, int voltaCompleta, int tParcial, int tTotal){
-  display.clearDisplay();
-  delay(100);
-  oledPrint("Voltas totais:", 5, 5);
-  oledPrint("Tempo total:", 5, 15);
-  oledPrint("Voltas parciais:", 5, 25);
-  oledPrint("Tempo parcial:", 5, 35);
-
-  
-  oledPrint(String(voltaCompleta), 5, 5);
-  oledPrint(String(tTotal), 5, 15);
-  oledPrint(String(voltaParcial), 5, 25);
-  oledPrint(String(tParcial), 5, 35);
-  
 }
