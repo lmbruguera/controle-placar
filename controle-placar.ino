@@ -6,7 +6,7 @@
 #include <Adafruit_GFX.h>       // OLED
 #include <Adafruit_SSD1306.h>   // OLED
 
-#include <TimeLib.h>            // usado na aba time 
+#include <TimeLib.h>            // usado na aba time
 
 
 // OLED (biblioteca Wire)   // D01
@@ -54,14 +54,14 @@ String tParcial;
 
 
 String longTimeStr(const time_t &t){
-  
+
   // Retorna segundos como "d:hh:mm:ss"
   String s = "";
-//  String s = String(t / SECS_PER_DAY) + ':';
-//  if (hour(t) < 10) {
-//    s += '0';
-//  }
-//  s += String(hour(t)) + ':';
+ //String s = String(t / SECS_PER_DAY) + ':';
+ if (hour(t) < 10) {
+   s += '0';
+ }
+ s += String(hour(t)) + ':';
 
   if (minute(t) < 1) {
     s += "0";
@@ -70,12 +70,12 @@ String longTimeStr(const time_t &t){
     s += '0';
   }
   s += String(minute(t)) + ':';
-  
+
   if (second(t) < 10) {
     s += '0';
   }
   s += String(second(t));
-  
+
   return s;
 }
 
@@ -94,9 +94,9 @@ void printDisplay(){
   oledPrint("T. parc:", 5, 35);
 
   oledPrint(String(voltaCompleta), 100, 5);
-  oledPrint(tTotal, 85, 15);
+  oledPrint(tTotal, 65, 15);
   oledPrint(String(voltaParcial), 105, 25);
-  oledPrint(tParcial, 85, 35);
+  oledPrint(tParcial, 65, 35);
 
   oledPrint(longTimeStr(millis()/1000), 80, 55);
   display.display();
@@ -116,7 +116,7 @@ void addScore(uint8_t pinIn){
   Serial.println(tAtual);
   Serial.print("Diff Time: ");
   Serial.println(diffTime);
-  
+
   tParcial = longTimeStr(diffTime);
   tTotal = longTimeStr(diffTotal);
   printDisplay();
@@ -149,7 +149,7 @@ void setup() {
   buttonA.setup(inputButtonA, BUTTON_DEBOUNCE_DELAY, InputDebounce::PIM_EXT_PULL_DOWN_RES);
   buttonB.setup(inputButtonB, BUTTON_DEBOUNCE_DELAY, InputDebounce::PIM_EXT_PULL_DOWN_RES);
   buttonC.setup(inputButtonC, BUTTON_DEBOUNCE_DELAY, InputDebounce::PIM_EXT_PULL_DOWN_RES);
-  
+
 //  // INICIA LITTLEFS
 //  if (!LittleFS.begin()) {
 //    Serial.println("LittleFS mount failed");
@@ -181,7 +181,7 @@ void loop() {
     printDisplay();
   }
 
-  
+
 
   buttonA.process(now);
   buttonB.process(now);
